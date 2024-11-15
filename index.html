@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beta Percyle - Real-Time Chat</title>
+  <style>
+    /* Body styling with a background image */
+    body {
+      font-family: Arial, sans-serif;
+      background: url('vit.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Centering content */
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 10px;
+    }
+
+    /* Header styling */
+    h1 {
+      text-align: center;
+      color: #f1c40f;
+      margin-bottom: 20px;
+    }
+
+    /* Form styling */
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #3498db;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    /* Chat window styling */
+    #chat-window {
+      margin-top: 30px;
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    #messages {
+      height: 200px;
+      overflow-y: scroll;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: #1e1e1e;
+    }
+
+    #message-input {
+      width: calc(100% - 90px);
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+
+    #message-form {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Small screen responsiveness */
+    @media (max-width: 600px) {
+      .container {
+        width: 90%;
+      }
+
+      #message-input {
+        width: calc(100% - 70px);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Beta Percyle</h1>
+
+    <!-- Sign Up and Login Forms -->
+    <div>
+      <h3>Sign Up</h3>
+      <div class="form-group">
+        <input type="email" id="signUpEmail" placeholder="Email">
+      </div>
+      <div class="form-group">
+        <input type="password" id="signUpPassword" placeholder="Password">
+      </div>
+      <button id="signUpBtn">Sign Up</button>
+    </div>
+
+    <div>
+      <h3>Login</h3>
+      <div class="form-group">
+        <input type="email" id="loginEmail" placeholder="Email">
+      </div>
+      <div class="form-group">
+        <input type="password" id="loginPassword" placeholder="Password">
+      </div>
+      <button id="loginBtn">Login</button>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chat-window" style="display: none;">
+      <h3>Chat</h3>
+      <div id="messages"></div>
+      <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type your message..." required>
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyC1iayEkkLqU3updQh3bHNEVfyth6cfUuQ",
+      authDomain: "rt-chat-com.firebaseapp.com",
+      databaseURL: "https://rt-chat-com-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "rt-chat-com",
+      storageBucket: "rt-chat-com.firebasestorage.app",
+      messagingSenderId: "578605288703",
+      appId: "1:578605288703:web:ae083e4e85ac77d17310ca",
+      measurementId: "G-54NW6Q573Z"
+    };
+
+    // Import Firebase functions
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // Sign Up Function
+    async function signUp() {
+      const email = document.getElementById("signUpEmail").value;
+      const password = document.getElementById("signUpPassword").value;
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        alert("Sign-up successful!");
+      } catch (error) {
+        console.error("Sign-up error:", error.message);
+      }
+    }
+
+    // Login Function
+    async function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        alert("Login successful!");
+        loadMessages();  // Start loading messages after successful login
+        document.getElementById("chat-window").style.display = 'block';  // Show chat window
+      } catch (error) {
+        console.error("Login error:", error.message);
+      }
+    }
+
+    // Send Message to Firebase Database
+    function sendMessage(message) {
+      const messagesRef = ref(db, 'messages/');
+      push(messagesRef, {
+        user: auth.currentUser.email,
+        message: message,
+        timestamp: serverTimestamp(),
+      });
+    }
+
+    // Display Messages in Real-Time
+    function loadMessages() {
+      const messagesRef = ref(db, 'messages/');
+      onChildAdded(messagesRef, (snapshot) => {
+        const msg = snapshot.val();
+        displayMessage(msg.user, msg.message);
+      });
+    }
+
+    // Function to Display Message in Chat Window
+    function displayMessage(user, message) {
+      const messagesDiv = document.getElementById("messages");
+      const msgDiv = document.createElement("div");
+      msgDiv.textContent = `${user}: ${message}`;
+      messagesDiv.appendChild(msgDiv);
+    }
+
+    // Event Listener to Send Message on Form Submission
+    document.getElementById("message-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const messageInput = document.getElementById("message-input");
+      const message = messageInput.value;
+      if (message) {
+        sendMessage(message);
+        messageInput.value = ""; // Clear input after sending
+      }
+    });
+
+    // Add event listeners for Sign Up and Login buttons
+    document.getElementById("signUpBtn").addEventListener("click", signUp);
+    document.getElementById("loginBtn").addEventListener("click", login);
+  </script>
+
+</body>
+</html>
